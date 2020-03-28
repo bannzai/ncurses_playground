@@ -1,3 +1,6 @@
 
 install:
-	gcc main.c -o main
+	gcc -omain -lncurses main.c
+
+dry-run: install
+	./main
