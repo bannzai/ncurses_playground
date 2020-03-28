@@ -1,120 +1,91 @@
+#include <stdio.h>
 #include <ncurses.h>
 
-typedef struct _win_border_struct {
-  chtype 	ls, rs, ts, bs, 
-          tl, tr, bl, br;
-}WIN_BORDER;
+#define WIDTH 30
+#define HEIGHT 10 
 
-typedef struct _WIN_struct {
+int startx = 0;
+int starty = 0;
 
-  int startx, starty;
-  int height, width;
-  WIN_BORDER border;
-}WIN;
+char *choices[] = { 
+			"Choice 1",
+			"Choice 2",
+			"Choice 3",
+			"Choice 4",
+			"Exit",
+		  };
+int n_choices = sizeof(choices) / sizeof(char *);
+void print_menu(WINDOW *menu_win, int highlight);
 
-void init_win_params(WIN *p_win);
-void print_win_params(WIN *p_win);
-void create_box(WIN *win, bool flag);
+int main()
+{	WINDOW *menu_win;
+	int highlight = 1;
+	int choice = 0;
+	int c;
 
-int main(int argc, char *argv[])
-{	WIN win;
-  int ch;
-
-  initscr();			/* Start curses mode 		*/
-  start_color();			/* Start the color functionality */
-  cbreak();			/* Line buffering disabled, Pass on
-                 * everty thing to me 		*/
-  keypad(stdscr, TRUE);		/* I need that nifty F1 	*/
-  noecho();
-  init_pair(1, COLOR_CYAN, COLOR_BLACK);
-
-  /* Initialize the window parameters */
-  init_win_params(&win);
-  print_win_params(&win);
-
-  attron(COLOR_PAIR(1));
-  printw("Press F1 to exit");
-  refresh();
-  attroff(COLOR_PAIR(1));
-
-  create_box(&win, TRUE);
-  while((ch = getch()) != KEY_F(1))
-  {	switch(ch)
-    {	case KEY_LEFT:
-      create_box(&win, FALSE);
-      --win.startx;
-      create_box(&win, TRUE);
-      break;
-      case KEY_RIGHT:
-      create_box(&win, FALSE);
-      ++win.startx;
-      create_box(&win, TRUE);
-      break;
-      case KEY_UP:
-      create_box(&win, FALSE);
-      --win.starty;
-      create_box(&win, TRUE);
-      break;
-      case KEY_DOWN:
-      create_box(&win, FALSE);
-      ++win.starty;
-      create_box(&win, TRUE);
-      break;	
-    }
-  }
-  endwin();			/* End curses mode		  */
-  return 0;
+	initscr();
+	clear();
+	noecho();
+	cbreak();	/* Line buffering disabled. pass on everything */
+	startx = (80 - WIDTH) / 2;
+	starty = (24 - HEIGHT) / 2;
+		
+	menu_win = newwin(HEIGHT, WIDTH, starty, startx);
+	keypad(menu_win, TRUE);
+	mvprintw(0, 0, "Use arrow keys to go up and down, Press enter to select a choice");
+	refresh();
+	print_menu(menu_win, highlight);
+	while(1)
+	{	c = wgetch(menu_win);
+		switch(c)
+		{	case KEY_UP:
+				if(highlight == 1)
+					highlight = n_choices;
+				else
+					--highlight;
+				break;
+			case KEY_DOWN:
+				if(highlight == n_choices)
+					highlight = 1;
+				else 
+					++highlight;
+				break;
+			case 10:
+				choice = highlight;
+				break;
+			default:
+				mvprintw(24, 0, "Charcter pressed is = %3d Hopefully it can be printed as '%c'", c, c);
+				refresh();
+				break;
+		}
+		print_menu(menu_win, highlight);
+		if(choice != 0)	/* User did a choice come out of the infinite loop */
+			break;
+	}	
+	mvprintw(23, 0, "You chose choice %d with choice string %s\n", choice, choices[choice - 1]);
+	clrtoeol();
+	refresh();
+	endwin();
+	return 0;
 }
-void init_win_params(WIN *p_win)
+
+
+void print_menu(WINDOW *menu_win, int highlight)
 {
-  p_win->height = 3;
-  p_win->width = 10;
-  p_win->starty = (LINES - p_win->height)/2;	
-  p_win->startx = (COLS - p_win->width)/2;
+	int x, y, i;	
 
-  p_win->border.ls = '|';
-  p_win->border.rs = '|';
-  p_win->border.ts = '-';
-  p_win->border.bs = '-';
-  p_win->border.tl = '+';
-  p_win->border.tr = '+';
-  p_win->border.bl = '+';
-  p_win->border.br = '+';
-
-}
-void print_win_params(WIN *p_win)
-{
-#ifdef _DEBUG
-  mvprintw(25, 0, "%d %d %d %d", p_win->startx, p_win->starty, 
-      p_win->width, p_win->height);
-  refresh();
-#endif
-}
-void create_box(WIN *p_win, bool flag)
-{	int i, j;
-  int x, y, w, h;
-
-  x = p_win->startx;
-  y = p_win->starty;
-  w = p_win->width;
-  h = p_win->height;
-
-  if(flag == TRUE)
-  {	mvaddch(y, x, p_win->border.tl);
-    mvaddch(y, x + w, p_win->border.tr);
-    mvaddch(y + h, x, p_win->border.bl);
-    mvaddch(y + h, x + w, p_win->border.br);
-    mvhline(y, x + 1, p_win->border.ts, w - 1);
-    mvhline(y + h, x + 1, p_win->border.bs, w - 1);
-    mvvline(y + 1, x, p_win->border.ls, h - 1);
-    mvvline(y + 1, x + w, p_win->border.rs, h - 1);
-
-  }
-  else
-    for(j = y; j <= y + h; ++j)
-      for(i = x; i <= x + w; ++i)
-        mvaddch(j, i, ' ');
-
-  refresh();
-
+	x = 2;
+	y = 2;
+	box(menu_win, 0, 0);
+	for(i = 0; i < n_choices; ++i)
+	{	if(highlight == i + 1) /* High light the present choice */
+		{	wattron(menu_win, A_REVERSE); 
+			mvwprintw(menu_win, y, x, "%s", choices[i]);
+			wattroff(menu_win, A_REVERSE);
+		}
+		else
+			mvwprintw(menu_win, y, x, "%s", choices[i]);
+		++y;
+	}
+	wrefresh(menu_win);
 }
